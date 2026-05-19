@@ -2,7 +2,16 @@ import { createLead } from '@/lib/odoo';
 
 const WEBHOOK_SECRET = process.env.TELEGRAM_WEBHOOK_SECRET;
 const ALLOWED_CHAT_ID = process.env.TELEGRAM_CHAT_ID;
+const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
 const TELEGRAM_USER_MAP = JSON.parse(process.env.TELEGRAM_USER_MAP ?? '{}');
+
+const TEMPLATE_KEYWORDS = ['müştəri', 'əlaqə nömrəsi', 'maraqlanır'];
+
+function looksLikeLead(text) {
+  if (!text) return false;
+  const lower = text.toLowerCase();
+  return TEMPLATE_KEYWORDS.some(k => lower.includes(k));
+}
 
 function parseLeadMessage(text) {
   if (!text) return null;
@@ -20,6 +29,18 @@ function parseLeadMessage(text) {
     interest: interestMatch[1].trim(),
     source: sourceMatch ? sourceMatch[1].trim() : null,
   };
+}
+
+async function sendMessage(chatId, text, replyToMessageId) {
+  await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      chat_id: chatId,
+      text,
+      reply_to_message_id: replyToMessageId,
+    }),
+  });
 }
 
 export async function POST(request) {
@@ -46,7 +67,15 @@ export async function POST(request) {
   }
 
   const lead = parseLeadMessage(message.text);
+
   if (!lead) {
+    if (looksLikeLead(message.text)) {
+      await sendMessage(
+        chatId,
+        '⚠️ Şablon düzgün doldurulmayıb. Zəhmət olmasa aşağıdakı formatda göndərin:\n\nMüştərinin adı: ...\nƏlaqə nömrəsi: ...\nNə ilə maraqlanır: ...\n✅ ... vasitəsilə olunan müraciət',
+        message.message_id
+      );
+    }
     return new Response('OK', { status: 200 });
   }
 
