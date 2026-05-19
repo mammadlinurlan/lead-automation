@@ -66,6 +66,8 @@ export async function POST(request) {
     return new Response('Forbidden', { status: 403 });
   }
 
+  console.log(`Göndərən: ${message.from?.first_name ?? ''} ${message.from?.last_name ?? ''} | Telegram ID: ${message.from?.id} | Mesaj: ${message.text}`);
+
   const lead = parseLeadMessage(message.text);
 
   if (!lead) {
@@ -79,7 +81,6 @@ export async function POST(request) {
     return new Response('OK', { status: 200 });
   }
 
-  console.log(`Göndərən: ${message.from?.first_name} ${message.from?.last_name ?? ''} (Telegram ID: ${message.from?.id})`);
   console.log('Yeni müştəri məlumatı:', lead);
 
   const odooUserId = TELEGRAM_USER_MAP[String(message.from?.id)] ?? null;
