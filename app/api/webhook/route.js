@@ -1,4 +1,5 @@
 import { createLead } from '@/lib/odoo';
+import { appendLeadToSheet } from '@/lib/sheets';
 
 const WEBHOOK_SECRET = process.env.TELEGRAM_WEBHOOK_SECRET;
 const ALLOWED_CHAT_ID = process.env.TELEGRAM_CHAT_ID;
@@ -66,7 +67,8 @@ export async function POST(request) {
     return new Response('Forbidden', { status: 403 });
   }
 
-  console.log(`Göndərən: ${message.from?.first_name ?? ''} ${message.from?.last_name ?? ''} | Telegram ID: ${message.from?.id} | Mesaj: ${message.text}`);
+  const senderName = `${message.from?.first_name ?? ''} ${message.from?.last_name ?? ''}`.trim();
+  console.log(`Göndərən: ${senderName} | Telegram ID: ${message.from?.id} | Mesaj: ${message.text}`);
 
   const lead = parseLeadMessage(message.text);
 
@@ -90,6 +92,13 @@ export async function POST(request) {
     console.log('Odoo lead ID:', leadId);
   } catch (err) {
     console.error('Odoo xətası:', err.message);
+  }
+
+  try {
+    await appendLeadToSheet(lead, senderName);
+    console.log('Sheets-ə yazıldı');
+  } catch (err) {
+    console.error('Sheets xətası:', err.message);
   }
 
   return new Response('OK', { status: 200 });
