@@ -81,13 +81,13 @@ export async function POST(request) {
     return new Response('OK', { status: 200 });
   }
 
-  console.log('Yeni müştəri məlumatı:', lead);
+  console.log('Yeni lead:', lead);
 
   const odooUserId = TELEGRAM_USER_MAP[String(message.from?.id)] ?? null;
 
   try {
     const leadId = await createLead(lead, odooUserId);
-    console.log('Odoo lead yaradıldı, ID:', leadId);
+    console.log('Odoo lead ID:', leadId);
   } catch (err) {
     console.error('Odoo xətası:', err.message);
   }
