@@ -1,0 +1,66 @@
+import { createLead } from '@/lib/odoo';
+
+const WEBHOOK_SECRET = process.env.TELEGRAM_WEBHOOK_SECRET;
+const ALLOWED_CHAT_ID = process.env.TELEGRAM_CHAT_ID;
+const TELEGRAM_USER_MAP = JSON.parse(process.env.TELEGRAM_USER_MAP ?? '{}');
+
+function parseLeadMessage(text) {
+  if (!text) return null;
+
+  const nameMatch = text.match(/Müştəri(?:nin)? adı:\s*(.+)/i);
+  const phoneMatch = text.match(/Əlaqə nömrəsi:\s*(.+)/i);
+  const interestMatch = text.match(/Nə ilə maraqlanır:\s*(.+)/i);
+  const sourceMatch = text.match(/✅\s+(.+?)\s+vasitəsilə/i);
+
+  if (!nameMatch || !phoneMatch || !interestMatch) return null;
+
+  return {
+    name: nameMatch[1].trim(),
+    phone: phoneMatch[1].trim(),
+    interest: interestMatch[1].trim(),
+    source: sourceMatch ? sourceMatch[1].trim() : null,
+  };
+}
+
+export async function POST(request) {
+  const secretHeader = request.headers.get('x-telegram-bot-api-secret-token');
+  if (secretHeader !== WEBHOOK_SECRET) {
+    return new Response('Unauthorized', { status: 401 });
+  }
+
+  let body;
+  try {
+    body = await request.json();
+  } catch {
+    return new Response('Bad Request', { status: 400 });
+  }
+
+  const message = body?.message;
+  if (!message) {
+    return new Response('OK', { status: 200 });
+  }
+
+  const chatId = String(message.chat?.id);
+  if (chatId !== String(ALLOWED_CHAT_ID).trim()) {
+    return new Response('Forbidden', { status: 403 });
+  }
+
+  const lead = parseLeadMessage(message.text);
+  if (!lead) {
+    return new Response('OK', { status: 200 });
+  }
+
+  console.log(`Göndərən: ${message.from?.first_name} ${message.from?.last_name ?? ''} (Telegram ID: ${message.from?.id})`);
+  console.log('Yeni müştəri məlumatı:', lead);
+
+  const odooUserId = TELEGRAM_USER_MAP[String(message.from?.id)] ?? null;
+
+  try {
+    const leadId = await createLead(lead, odooUserId);
+    console.log('Odoo lead yaradıldı, ID:', leadId);
+  } catch (err) {
+    console.error('Odoo xətası:', err.message);
+  }
+
+  return new Response('OK', { status: 200 });
+}
